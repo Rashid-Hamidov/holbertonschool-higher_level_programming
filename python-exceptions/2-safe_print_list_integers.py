@@ -2,11 +2,21 @@
 
 def safe_print_list_integers(my_list=[], x=0):
     count = 0
-    for i in range(x):
+    i = 0
+
+    while i < x:
         try:
-            print("{:d}".format(my_list[i]), end="")
+            value = my_list[i]
+        except IndexError:
+            break
+
+        try:
+            print("{:d}".format(value), end="")
             count += 1
-        except (IndexError, TypeError, ValueError):
-            continue
+        except (TypeError, ValueError):
+            pass
+
+        i += 1
+
     print()
     return count
