@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 from flask import Flask, render_template, request
-import json
 import csv
+import json
 import sqlite3
 from pathlib import Path
 
@@ -9,91 +9,81 @@ app = Flask(__name__)
 BASE_DIR = Path(__file__).resolve().parent
 
 
-def load_json():
-    with open(BASE_DIR / "products.json", "r", encoding="utf-8") as f:
-        return json.load(f)
+def load_json_products():
+    with open(BASE_DIR / "products.json", "r", encoding="utf-8") as file:
+        return json.load(file)
 
 
-def load_csv():
-    with open(BASE_DIR / "products.csv", "r", encoding="utf-8") as f:
-        return list(csv.DictReader(f))
+def load_csv_products():
+    with open(BASE_DIR / "products.csv", "r", encoding="utf-8") as file:
+        return list(csv.DictReader(file))
 
 
-def load_sql():
+def load_sql_products():
     conn = sqlite3.connect(BASE_DIR / "products.db")
     cursor = conn.cursor()
     cursor.execute("SELECT id, name, category, price FROM Products")
     rows = cursor.fetchall()
     conn.close()
 
-    return [
-        {"id": r[0], "name": r[1], "category": r[2], "price": r[3]}
-        for r in rows
-    ]
+    products = []
+    for row in rows:
+        products.append({
+            "id": str(row[0]),
+            "name": row[1],
+            "category": row[2],
+            "price": str(row[3]),
+        })
+    return products
 
 
-def init_db():
-    conn = sqlite3.connect(BASE_DIR / "products.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS Products (
-            id INTEGER PRIMARY KEY,
-            name TEXT NOT NULL,
-            category TEXT NOT NULL,
-            price REAL NOT NULL
-        )
-    """)
-
-    cursor.execute("DELETE FROM Products")
-
-    cursor.execute("""
-        INSERT INTO Products (id, name, category, price)
-        VALUES
-        (1, 'Laptop', 'Electronics', 799.99),
-        (2, 'Coffee Mug', 'Home Goods', 15.99)
-    """)
-
-    conn.commit()
-    conn.close()
-
-
-def find_product(products, pid):
-    for p in products:
-        if str(p.get("id")) == str(pid):
-            return p
+def find_product(products, product_id):
+    for product in products:
+        if str(product.get("id")) == str(product_id):
+            return product
     return None
 
 
 @app.route("/products")
 def products():
     source = request.args.get("source")
-    pid = request.args.get("id")
+    product_id = request.args.get("id")
 
     if source == "json":
-        data = load_json()
+        data = load_json_products()
     elif source == "csv":
-        data = load_csv()
+        data = load_csv_products()
     elif source == "sql":
-        data = load_sql()
+        data = load_sql_products()
     else:
-        return render_template("product_display.html",
-                               products=[],
-                               error="Wrong source")
+        return render_template(
+            "product_display.html",
+            products=[],
+            error="Wrong source"
+        )
 
-    if pid:
-        product = find_product(data, pid)
+    if product_id:
+        product = find_product(data, product_id)
         if not product:
-            return render_template("product_display.html",
-                                   products=[],
-                                   error="Product not found")
+            if source == "sql":
+                return render_template(
+                    "product_display.html",
+                    products=[],
+                    error="Product not found in SQL source"
+                )
+            return render_template(
+                "product_display.html",
+                products=[],
+                error="Product not found"
+            )
         data = [product]
 
-    return render_template("product_display.html",
-                           products=data,
-                           error=None)
+    return render_template(
+        "product_display.html",
+        products=data,
+        error=None
+    )
 
 
 if __name__ == "__main__":
-    init_db()
-    app.run(debug=True, port=5000)
+    app.run(host="0.0.0.0", port=5000)
